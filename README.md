@@ -1,5 +1,7 @@
 # 🎁 Wichteln – Auslosung für Freunde
 
+**➡️ Zur Seite: https://pixeltoni.github.io/Friends/** · [Admin-Bereich](https://pixeltoni.github.io/Friends/admin.html)
+
 Eine kleine Website zum Wichteln, gehostet mit **GitHub Pages**. Die Daten liegen in einer **Supabase**-Datenbank (Projekt „Wichteln“, EU/Frankfurt).
 
 1. **Eintragen:** Alle öffnen die Startseite und tragen sich mit Name, einer selbst gewählten PIN und optional einem Wunschzettel ein.
