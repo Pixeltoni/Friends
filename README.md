@@ -10,10 +10,10 @@ Die Auslosung ist garantiert gültig: Niemand zieht sich selbst, und alle werden
 
 ## Aufbau
 
-- `docs/` – die Website (reines HTML/CSS/JS, wird von GitHub Pages ausgeliefert)
-  - `index.html` – Startseite für alle
-  - `admin.html` – Admin-Bereich
-  - `api.js` – Verbindung zu Supabase
+- `index.html` – Startseite für alle
+- `admin.html` – Admin-Bereich
+- `api.js` – Verbindung zu Supabase
+- `style.css` – Aussehen
 - Supabase-Datenbank:
   - Alle Daten liegen im Schema `private`, das von außen **nicht** lesbar ist.
   - Die Website ruft nur die Funktionen `wichtel_*` auf. Diese prüfen PIN bzw. Admin-Passwort selbst.
@@ -26,7 +26,7 @@ Der Key in `api.js` ist ein öffentlicher „Publishable Key“ und darf im Code
 Im Repository auf GitHub: **Settings → Pages → Build and deployment**
 
 - Source: **Deploy from a branch**
-- Branch: den Branch mit dieser Website wählen, Ordner **`/docs`**
+- Branch: **`main`**, Ordner **`/ (root)`**
 - **Save**
 
 Nach ca. einer Minute ist die Seite unter `https://<benutzername>.github.io/<repo>/` erreichbar, der Admin-Bereich unter `…/admin.html`.
@@ -34,7 +34,7 @@ Nach ca. einer Minute ist die Seite unter `https://<benutzername>.github.io/<rep
 ## Lokal ausprobieren
 
 ```bash
-cd docs && python3 -m http.server 8000
+python3 -m http.server 8000
 ```
 
 Dann http://localhost:8000 öffnen (nutzt dieselbe Supabase-Datenbank).
