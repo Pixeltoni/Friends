@@ -2,7 +2,9 @@
 <html lang="de">
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#0f2a20">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 100 100%27%3E%3Ctext y=%27.9em%27 font-size=%2790%27%3E%F0%9F%8E%81%3C/text%3E%3C/svg%3E">
   <title>Wichteln · Admin</title>
   <meta name="robots" content="noindex">
   <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -11,8 +13,10 @@
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
+  <div class="snow" aria-hidden="true"></div>
   <main class="wrap">
     <header>
+      <div class="lights" aria-hidden="true"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></div>
       <div class="eyebrow">Admin-Bereich</div>
       <h1 id="title">Wichteln</h1>
       <p class="sub" id="subtitle">&nbsp;</p>
@@ -56,13 +60,13 @@
       <div class="card">
         <h2>Einstellungen</h2>
         <label for="s-title">Titel der Seite</label>
-        <div class="row" style="flex-wrap:nowrap">
+        <div class="row nowrap">
           <input id="s-title" maxlength="60">
           <button class="outline" id="btn-title" type="button">Speichern</button>
         </div>
 
         <label for="s-pw">Neues Admin-Passwort <span class="hint">(mind. 8 Zeichen)</span></label>
-        <div class="row" style="flex-wrap:nowrap">
+        <div class="row nowrap">
           <input id="s-pw" type="password" autocomplete="new-password">
           <button class="outline" id="btn-pw" type="button">Ändern</button>
         </div>
