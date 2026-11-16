@@ -8,7 +8,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="/style.css">
+  <link rel="stylesheet" href="style.css">
 </head>
 <body>
   <main class="wrap">
@@ -60,32 +60,30 @@
           <input id="s-title" maxlength="60">
           <button class="outline" id="btn-title" type="button">Speichern</button>
         </div>
+
+        <label for="s-pw">Neues Admin-Passwort <span class="hint">(mind. 8 Zeichen)</span></label>
+        <div class="row" style="flex-wrap:nowrap">
+          <input id="s-pw" type="password" autocomplete="new-password">
+          <button class="outline" id="btn-pw" type="button">Ändern</button>
+        </div>
+
         <label>Alles löschen</label>
         <p class="muted" style="margin-top:0">Entfernt alle Teilnehmenden und die Auslosung, z. B. fürs nächste Jahr.</p>
         <button class="outline small" id="btn-reset-all" type="button">Alles zurücksetzen</button>
+        <div id="settings-msg"></div>
       </div>
     </section>
 
-    <footer><a href="/">Zur Startseite</a></footer>
+    <footer><a href="./">Zur Startseite</a></footer>
   </main>
 
+  <script src="api.js"></script>
   <script>
     const $ = (id) => document.getElementById(id);
     const PW_KEY = 'wichtel-admin';
     let pw = '';
     try { pw = sessionStorage.getItem(PW_KEY) || ''; } catch {}
     let status = null;
-
-    async function api(path, opts = {}) {
-      const res = await fetch(path, {
-        ...opts,
-        headers: { 'Content-Type': 'application/json', 'X-Admin-Password': pw },
-        body: opts.body && JSON.stringify(opts.body),
-      });
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok) throw Object.assign(new Error(data.error || 'Fehler'), { status: res.status });
-      return data;
-    }
 
     function showMsg(el, text, kind = 'error') {
       el.innerHTML = '';
@@ -131,9 +129,8 @@
           const rm = document.createElement('button');
           rm.className = 'outline small';
           rm.textContent = 'Entfernen';
-          rm.onclick = async () => {
-            if (!confirm(`${p.name} wirklich entfernen?`)) return;
-            await act('/api/admin/remove', { id: p.id });
+          rm.onclick = () => {
+            if (confirm(`${p.name} wirklich entfernen?`)) act('wichtel_admin_remove', { p_id: p.id });
           };
           li.append(rm);
         }
@@ -148,19 +145,22 @@
     }
 
     async function refresh() {
-      status = await api('/api/status');
+      status = await rpc('wichtel_status');
       render();
     }
 
-    async function act(path, body, okText) {
+    async function act(fn, args, okText, msgEl = $('admin-msg')) {
       showMsg($('admin-msg'), '');
+      showMsg($('settings-msg'), '');
       try {
-        await api(path, { method: 'POST', body: body || {} });
+        await rpc(fn, { p_pw: pw, ...(args || {}) });
         await refresh();
-        if (okText) showMsg($('admin-msg'), okText, 'ok');
+        if (okText) showMsg(msgEl, okText, 'ok');
+        return true;
       } catch (e) {
-        if (e.status === 401) return logout();
-        showMsg($('admin-msg'), e.message);
+        if (e.auth) { logout(); showMsg($('auth-msg'), e.message); return false; }
+        showMsg(msgEl, e.message);
+        return false;
       }
     }
 
@@ -173,15 +173,14 @@
 
     async function login() {
       try {
-        await api('/api/admin/check');
+        await rpc('wichtel_admin_check', { p_pw: pw });
         try { sessionStorage.setItem(PW_KEY, pw); } catch {}
         $('view-auth').classList.add('hidden');
         $('view-admin').classList.remove('hidden');
         await refresh();
       } catch (e) {
         logout();
-        if (e.status === 401) showMsg($('auth-msg'), 'Falsches Passwort.');
-        else showMsg($('auth-msg'), 'Server nicht erreichbar.');
+        showMsg($('auth-msg'), e.message);
       }
     }
 
@@ -194,21 +193,30 @@
 
     $('btn-draw').addEventListener('click', () => {
       if (!confirm('Jetzt auslosen? Danach kann sich niemand mehr eintragen.')) return;
-      act('/api/admin/draw', null, 'Ausgelost! 🎉 Alle können jetzt ihren Wichtel sehen.');
+      act('wichtel_admin_draw', null, 'Ausgelost! 🎉 Alle können jetzt ihren Wichtel sehen.');
     });
 
     $('btn-reset-draw').addEventListener('click', () => {
       if (!confirm('Auslosung zurücksetzen? Alle bisherigen Zuteilungen gehen verloren und es kann neu ausgelost werden.')) return;
-      act('/api/admin/reset-draw', null, 'Auslosung zurückgesetzt.');
+      act('wichtel_admin_reset_draw', null, 'Auslosung zurückgesetzt.');
     });
 
     $('btn-reset-all').addEventListener('click', () => {
       if (!confirm('Wirklich ALLES löschen? Alle Teilnehmenden und die Auslosung werden entfernt.')) return;
-      act('/api/admin/reset-all', null, 'Alles zurückgesetzt.');
+      act('wichtel_admin_reset_all', null, 'Alles zurückgesetzt.', $('settings-msg'));
     });
 
     $('btn-title').addEventListener('click', () =>
-      act('/api/admin/title', { title: $('s-title').value }, 'Titel gespeichert.'));
+      act('wichtel_admin_set_title', { p_title: $('s-title').value }, 'Titel gespeichert.', $('settings-msg')));
+
+    $('btn-pw').addEventListener('click', async () => {
+      const neu = $('s-pw').value;
+      if (await act('wichtel_admin_set_password', { p_new: neu }, 'Passwort geändert.', $('settings-msg'))) {
+        pw = neu;
+        try { sessionStorage.setItem(PW_KEY, pw); } catch {}
+        $('s-pw').value = '';
+      }
+    });
 
     if (pw) login();
     setInterval(() => { if (pw && !document.hidden) refresh().catch(() => {}); }, 15000);
