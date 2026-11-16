@@ -436,3 +436,128 @@ footer::after {
 @media (prefers-reduced-motion: reduce) {
   .reveal .target, .gift, .lights span, .snow, .snow::before, .snow::after { animation: none; }
 }
+
+/* ---------- Hilfsklassen ---------- */
+.sr-only {
+  position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0;
+  overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0;
+}
+.stack { display: flex; flex-direction: column; min-width: 0; }
+.stack small { overflow-wrap: anywhere; }
+.people li.wrap-li { flex-wrap: wrap; }
+.people li.wrap-li .name { white-space: normal; overflow-wrap: anywhere; }
+.people li.wrap-li .who { flex: 1 1 160px; }
+button.full.outline { margin-top: 14px; }
+input[type="date"], input[type="datetime-local"] { min-height: 48px; }
+
+/* ---------- Countdown ---------- */
+.countdown { margin-top: 18px; }
+.cd-label {
+  font-size: 13px;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+  color: var(--gold);
+  font-weight: 600;
+  margin-bottom: 8px;
+  overflow-wrap: anywhere;
+}
+.cd-boxes { display: flex; justify-content: center; gap: 8px; }
+.cd-boxes > div {
+  flex: 0 1 74px;
+  background: rgba(255, 250, 240, 0.08);
+  border: 1px solid rgba(255, 250, 240, 0.16);
+  border-radius: 14px;
+  padding: 10px 4px 8px;
+}
+.cd-boxes b {
+  display: block;
+  font-family: "Fraunces", Georgia, serif;
+  font-size: clamp(24px, 7vw, 32px);
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+  color: var(--paper);
+}
+.cd-boxes span { font-size: 11px; letter-spacing: .1em; text-transform: uppercase; color: rgba(255, 250, 240, 0.65); }
+
+/* ---------- Budget & Übergabe ---------- */
+.info { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 16px; }
+.info-item {
+  flex: 1 1 200px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: rgba(255, 250, 240, 0.08);
+  border: 1px solid rgba(224, 179, 79, 0.35);
+  border-radius: 14px;
+  padding: 12px 14px;
+  color: var(--paper);
+  min-width: 0;
+}
+.info-icon { font-size: 24px; flex: none; }
+.info-item small { display: block; font-size: 11px; letter-spacing: .1em; text-transform: uppercase; color: var(--gold); }
+.info-item strong { display: block; overflow-wrap: anywhere; line-height: 1.3; }
+
+/* ---------- Terminabstimmung ---------- */
+.poll { list-style: none; padding: 0; margin: 12px 0 0; display: grid; gap: 8px; }
+.poll-opt {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  min-height: 60px;
+  padding: 10px 12px;
+  text-align: left;
+  font-weight: 400;
+  background: #fff;
+  color: var(--ink);
+  border: 1.5px solid var(--line);
+  border-radius: 14px;
+}
+button.poll-opt:hover { background: var(--paper-2); }
+.poll-opt.voted { border-color: var(--green); background: var(--green-soft); }
+button.poll-opt.voted:hover { background: #d6e7dc; }
+.poll-opt.final { border-color: var(--red); background: var(--red-soft); }
+.poll-check {
+  flex: none;
+  width: 28px; height: 28px;
+  border-radius: 50%;
+  border: 2px solid var(--line);
+  display: grid; place-items: center;
+  font-weight: 700;
+  color: #fff;
+  background: #fff;
+}
+.poll-opt.voted .poll-check { background: var(--green); border-color: var(--green); }
+.poll-opt.final .poll-check { border: 0; background: transparent; font-size: 22px; }
+.poll-body { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.poll-body strong { font-weight: 600; }
+.poll-body small { color: var(--muted); overflow-wrap: anywhere; }
+.poll-count {
+  flex: none;
+  min-width: 32px;
+  padding: 3px 9px;
+  border-radius: 999px;
+  text-align: center;
+  font-weight: 700;
+  font-size: 14px;
+  background: var(--paper-2);
+  color: var(--muted);
+}
+.poll-opt.top .poll-count { background: var(--gold); color: #3d2c05; }
+
+/* ---------- Konfetti ---------- */
+.confetti {
+  position: fixed;
+  inset: 0;
+  width: 100%; height: 100%;
+  pointer-events: none;
+  z-index: 10;
+  display: none;
+}
+.confetti.on { display: block; }
+
+@media (max-width: 480px) {
+  .cd-boxes { gap: 6px; }
+  .people li.wrap-li .row { width: 100%; }
+  .people li.wrap-li .row button { flex: 1; }
+}

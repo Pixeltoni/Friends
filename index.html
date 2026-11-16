@@ -6,6 +6,12 @@
   <meta name="theme-color" content="#0f2a20">
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 100 100%27%3E%3Ctext y=%27.9em%27 font-size=%2790%27%3E%F0%9F%8E%81%3C/text%3E%3C/svg%3E">
   <title>Wichteln</title>
+  <meta name="description" content="Trag dich ein und finde heraus, wen du dieses Jahr beschenkst.">
+  <meta property="og:type" content="website">
+  <meta property="og:title" content="Wichteln – mach mit!">
+  <meta property="og:description" content="Trag dich ein und finde heraus, wen du dieses Jahr beschenkst.">
+  <meta property="og:image" content="https://pixeltoni.github.io/Friends/og.png">
+  <meta name="twitter:card" content="summary_large_image">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -19,7 +25,22 @@
       <div class="eyebrow">Geheime Auslosung</div>
       <h1 id="title">Wichteln</h1>
       <p class="sub" id="subtitle">&nbsp;</p>
+      <div class="countdown hidden" id="countdown" role="timer" aria-live="off">
+        <div class="cd-label" id="cd-label"></div>
+        <div class="cd-boxes" id="cd-boxes">
+          <div><b id="cd-d">0</b><span>Tage</span></div>
+          <div><b id="cd-h">0</b><span>Std</span></div>
+          <div><b id="cd-m">0</b><span>Min</span></div>
+          <div><b id="cd-s">0</b><span>Sek</span></div>
+        </div>
+      </div>
     </header>
+
+    <!-- Budget & Übergabe -->
+    <section id="view-info" class="info hidden">
+      <div class="info-item hidden" id="info-budget"><span class="info-icon" aria-hidden="true">🎁</span><div><small>Budget</small><strong id="info-budget-text"></strong></div></div>
+      <div class="info-item hidden" id="info-handover"><span class="info-icon" aria-hidden="true">📍</span><div><small>Übergabe</small><strong id="info-handover-text"></strong></div></div>
+    </section>
 
     <!-- Eintragen -->
     <section id="view-join" class="card hidden">
@@ -64,13 +85,7 @@
           <h2>Hallo <span id="w-name"></span>!</h2>
           <span class="pill">Du bist dabei</span>
         </div>
-        <p class="muted">Sobald alle eingetragen sind, startet die Admin-Person die Auslosung. Danach siehst du hier deinen Wichtel.</p>
-        <label for="w-wish">Dein Wunschzettel</label>
-        <textarea id="w-wish" maxlength="500"></textarea>
-        <div class="row" style="margin-top:10px">
-          <button class="outline small" id="save-wish" type="button">Wunschzettel speichern</button>
-          <span id="wish-msg" class="muted"></span>
-        </div>
+        <p class="muted" style="margin-bottom:0">Sobald alle eingetragen sind, startet die Admin-Person die Auslosung. Danach siehst du hier deinen Wichtel.</p>
       </div>
     </section>
 
@@ -85,6 +100,29 @@
       </div>
     </section>
 
+    <!-- Eigener Wunschzettel (vor und nach der Auslosung) -->
+    <section id="view-wish" class="card hidden">
+      <h2>Dein Wunschzettel</h2>
+      <p class="muted" id="wish-hint">Was würde dich freuen?</p>
+      <label for="w-wish" class="sr-only">Dein Wunschzettel</label>
+      <textarea id="w-wish" maxlength="500" placeholder="z. B. Bücher, Socken, gute Schokolade …"></textarea>
+      <div class="row" style="margin-top:10px">
+        <button class="outline small" id="save-wish" type="button">Wunschzettel speichern</button>
+        <span id="wish-msg" class="muted" role="status"></span>
+      </div>
+    </section>
+
+    <!-- Terminabstimmung Weihnachtsfeier -->
+    <section id="view-poll" class="card hidden">
+      <div class="row between">
+        <h2>Weihnachtsfeier</h2>
+        <span class="pill" id="poll-pill">Abstimmung</span>
+      </div>
+      <p class="muted" id="poll-hint"></p>
+      <ul class="poll" id="poll"></ul>
+      <div id="poll-msg"></div>
+    </section>
+
     <!-- Teilnehmende -->
     <section id="view-people" class="card hidden">
       <div class="row between">
@@ -92,12 +130,15 @@
         <span class="pill" id="count">0</span>
       </div>
       <ul class="people" id="people"></ul>
+      <button class="full outline hidden" id="share" type="button">Einladung teilen</button>
+      <div id="share-msg" class="center muted" role="status" style="margin-top:8px"></div>
     </section>
 
     <footer>
       <button class="ghost hidden" id="logout" type="button">Abmelden</button>
     </footer>
   </main>
+  <canvas id="confetti" class="confetti" aria-hidden="true"></canvas>
 
   <script src="api.js"></script>
   <script>
@@ -108,6 +149,7 @@
     let me = null;
     let status = null;
     let forcedView = null;
+    let wishDirty = false;
 
     function setToken(t) {
       token = t;
@@ -128,7 +170,7 @@
     }
 
     function show(ids) {
-      ['view-join', 'view-login', 'view-waiting', 'view-result', 'view-people'].forEach((id) =>
+      ['view-join', 'view-login', 'view-waiting', 'view-result', 'view-wish', 'view-people'].forEach((id) =>
         $(id).classList.toggle('hidden', !ids.includes(id)));
     }
 
@@ -157,6 +199,105 @@
         list.append(li);
       }
       $('count').textContent = status.participants.length;
+      $('share').classList.toggle('hidden', status.drawn);
+    }
+
+    /* ---------- Budget & Übergabe ---------- */
+    function renderInfo() {
+      const b = status.budget || '', h = status.handover || '';
+      $('info-budget-text').textContent = b;
+      $('info-handover-text').textContent = h;
+      $('info-budget').classList.toggle('hidden', !b);
+      $('info-handover').classList.toggle('hidden', !h);
+      $('view-info').classList.toggle('hidden', !b && !h);
+    }
+
+    /* ---------- Countdown ---------- */
+    function tickCountdown() {
+      const box = $('countdown');
+      const at = status && status.countdownAt ? new Date(status.countdownAt).getTime() : NaN;
+      if (isNaN(at)) { box.classList.add('hidden'); return; }
+      box.classList.remove('hidden');
+      const label = status.countdownLabel || '';
+      let left = Math.floor((at - Date.now()) / 1000);
+      if (left <= 0) {
+        $('cd-boxes').classList.add('hidden');
+        $('cd-label').textContent = label ? `${label} – es ist so weit! 🎉` : 'Es ist so weit! 🎉';
+        return;
+      }
+      $('cd-boxes').classList.remove('hidden');
+      $('cd-label').textContent = label ? `Noch bis: ${label}` : 'Countdown';
+      $('cd-d').textContent = Math.floor(left / 86400); left %= 86400;
+      $('cd-h').textContent = Math.floor(left / 3600); left %= 3600;
+      $('cd-m').textContent = Math.floor(left / 60);
+      $('cd-s').textContent = left % 60;
+    }
+
+    /* ---------- Terminabstimmung ---------- */
+    function fmtDay(day, time) {
+      const d = new Date(day + 'T12:00:00');
+      const txt = d.toLocaleDateString('de-DE', { weekday: 'short', day: 'numeric', month: 'long' });
+      return time ? `${txt} · ${time}` : txt;
+    }
+
+    function renderPoll() {
+      const poll = status.poll || { options: [] };
+      const opts = poll.options || [];
+      $('view-poll').classList.toggle('hidden', !opts.length);
+      if (!opts.length) return;
+      const final = poll.finalId ? opts.find((o) => o.id === poll.finalId) : null;
+      const mine = (me && me.votes) || [];
+      const max = Math.max(0, ...opts.map((o) => o.voters.length));
+      $('poll-pill').textContent = final ? 'Termin steht' : 'Abstimmung';
+      $('poll-pill').classList.toggle('red', !!final);
+      $('poll-hint').textContent = final
+        ? 'Der Termin für die Weihnachtsfeier steht fest:'
+        : me ? 'Wann hast du Zeit? Tippe alle Termine an, die für dich passen.'
+             : 'Melde dich an oder trag dich ein, um mit abzustimmen.';
+      const list = $('poll');
+      list.innerHTML = '';
+      opts.forEach((o) => {
+        if (final && o.id !== final.id) return;
+        const n = o.voters.length;
+        const voted = mine.includes(o.id);
+        const li = document.createElement('li');
+        const el = document.createElement(me && !final ? 'button' : 'div');
+        el.className = 'poll-opt' + (voted ? ' voted' : '') + (final ? ' final' : '') + (!final && n && n === max ? ' top' : '');
+        if (el.tagName === 'BUTTON') {
+          el.type = 'button';
+          el.setAttribute('aria-pressed', voted);
+          el.onclick = () => vote(o.id, !voted);
+        }
+        const check = document.createElement('span');
+        check.className = 'poll-check';
+        check.textContent = final ? '🎄' : voted ? '✓' : '';
+        const body = document.createElement('span');
+        body.className = 'poll-body';
+        const day = document.createElement('strong');
+        day.textContent = fmtDay(o.day, o.time);
+        const who = document.createElement('small');
+        who.textContent = n ? o.voters.join(', ') : 'Noch keine Stimme';
+        body.append(day, who);
+        const cnt = document.createElement('span');
+        cnt.className = 'poll-count';
+        cnt.textContent = n;
+        el.append(check, body, cnt);
+        li.append(el);
+        list.append(li);
+      });
+    }
+
+    async function vote(id, yes) {
+      showMsg($('poll-msg'), '');
+      // Sofort anzeigen, dann mit dem Server abgleichen
+      me.votes = yes ? [...(me.votes || []), id] : (me.votes || []).filter((v) => v !== id);
+      const o = status.poll.options.find((x) => x.id === id);
+      if (o) o.voters = yes ? [...o.voters, me.name] : o.voters.filter((v) => v !== me.name);
+      renderPoll();
+      try {
+        await rpc('wichtel_vote', { p_token: token, p_option: id, p_yes: yes });
+      } catch (e) { showMsg($('poll-msg'), e.message); }
+      refresh();
     }
 
     function render() {
@@ -168,22 +309,30 @@
         : n === 1 ? '1 Person ist dabei' : `${n} Personen sind dabei`;
       $('logout').classList.toggle('hidden', !me);
 
+      if (me && !wishDirty && document.activeElement !== $('w-wish')) $('w-wish').value = me.wish || '';
+
       if (me && status.drawn && me.wichtel) {
         $('r-target').textContent = me.wichtel.name;
         $('r-wish').textContent = me.wichtel.wish || '(kein Wunschzettel angegeben)';
-        show(['view-result']);
+        $('wish-hint').textContent = 'Du kannst ihn weiterhin ändern – dein Wichtel sieht die neue Fassung sofort.';
+        show(['view-result', 'view-wish']);
       } else if (me) {
         $('w-name').textContent = me.name;
-        if (document.activeElement !== $('w-wish')) $('w-wish').value = me.wish || '';
-        show(['view-waiting', 'view-people']);
+        $('wish-hint').textContent = 'Was würde dich freuen? Du kannst ihn jederzeit ändern.';
+        show(['view-waiting', 'view-wish', 'view-people']);
       } else if (status.drawn) {
         $('login-hint').textContent = 'Es wurde ausgelost! Melde dich an, um deinen Wichtel zu sehen.';
         $('back-to-join').classList.add('hidden');
         show(['view-login']);
       } else {
+        $('login-hint').textContent = 'Melde dich mit deinem Namen und deiner PIN an.';
+        $('back-to-join').classList.remove('hidden');
         show([forcedView === 'login' ? 'view-login' : 'view-join', 'view-people']);
       }
       renderPeople();
+      renderInfo();
+      renderPoll();
+      tickCountdown();
     }
 
     async function refresh() {
@@ -226,18 +375,75 @@
       } catch (e) { showMsg($('login-msg'), e.message); }
     });
 
+    $('w-wish').addEventListener('input', () => { wishDirty = true; });
+
     $('save-wish').addEventListener('click', async () => {
       try {
         await rpc('wichtel_set_wish', { p_token: token, p_wish: $('w-wish').value });
         me.wish = $('w-wish').value;
+        wishDirty = false;
         $('wish-msg').textContent = 'Gespeichert ✓';
         setTimeout(() => ($('wish-msg').textContent = ''), 2000);
       } catch (e) { $('wish-msg').textContent = e.message; }
     });
 
+    /* ---------- Einladung teilen ---------- */
+    $('share').addEventListener('click', async () => {
+      const url = location.href.split('#')[0].split('?')[0];
+      const data = { title: status.title, text: `Mach mit beim Wichteln: ${status.title} 🎁`, url };
+      try {
+        if (navigator.share) { await navigator.share(data); return; }
+        await navigator.clipboard.writeText(`${data.text}\n${url}`);
+        $('share-msg').textContent = 'Link kopiert ✓';
+      } catch (e) {
+        if (e && e.name === 'AbortError') return;
+        $('share-msg').textContent = url;
+      }
+      setTimeout(() => ($('share-msg').textContent = ''), 4000);
+    });
+
+    /* ---------- Konfetti beim Auspacken ---------- */
+    function confetti() {
+      if (matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+      const c = $('confetti');
+      const ctx = c.getContext('2d');
+      const dpr = Math.min(window.devicePixelRatio || 1, 2);
+      const W = (c.width = innerWidth * dpr), H = (c.height = innerHeight * dpr);
+      const colors = ['#c0392b', '#e0b34f', '#1d5a3f', '#fffaf0', '#6cc6ff', '#ff8a80'];
+      const parts = Array.from({ length: 140 }, () => {
+        const a = -Math.PI / 2 + (Math.random() - 0.5) * 1.9;
+        const v = (7 + Math.random() * 13) * dpr;
+        return {
+          x: W / 2, y: H * 0.45, vx: Math.cos(a) * v, vy: Math.sin(a) * v,
+          w: (5 + Math.random() * 6) * dpr, h: (8 + Math.random() * 8) * dpr,
+          r: Math.random() * 6.3, vr: (Math.random() - 0.5) * 0.4,
+          c: colors[(Math.random() * colors.length) | 0],
+        };
+      });
+      c.classList.add('on');
+      const start = performance.now();
+      (function frame(now) {
+        const t = now - start;
+        ctx.clearRect(0, 0, W, H);
+        parts.forEach((p) => {
+          p.vy += 0.35 * dpr; p.vx *= 0.99;
+          p.x += p.vx; p.y += p.vy; p.r += p.vr;
+          ctx.save();
+          ctx.globalAlpha = Math.max(0, 1 - t / 3200);
+          ctx.translate(p.x, p.y); ctx.rotate(p.r);
+          ctx.fillStyle = p.c;
+          ctx.fillRect(-p.w / 2, -p.h / 2, p.w, p.h * Math.abs(Math.cos(p.r * 2)));
+          ctx.restore();
+        });
+        if (t < 3200) requestAnimationFrame(frame);
+        else { ctx.clearRect(0, 0, W, H); c.classList.remove('on'); }
+      })(start);
+    }
+
     $('gift').addEventListener('click', () => {
       $('gift').classList.add('hidden');
       $('reveal').classList.remove('hidden');
+      confetti();
     });
 
     document.querySelectorAll('[data-show]').forEach((b) =>
@@ -246,6 +452,7 @@
     $('logout').addEventListener('click', () => {
       setToken(null);
       me = null;
+      wishDirty = false;
       $('gift').classList.remove('hidden');
       $('reveal').classList.add('hidden');
       render();
@@ -253,6 +460,7 @@
 
     refresh();
     setInterval(() => { if (!document.hidden) refresh(); }, 15000);
+    setInterval(tickCountdown, 1000);
   </script>
 </body>
 </html>

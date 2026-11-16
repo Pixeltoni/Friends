@@ -55,6 +55,38 @@
           <span class="pill" id="count">0</span>
         </div>
         <ul class="people" id="people"></ul>
+        <div id="people-msg"></div>
+      </div>
+
+      <div class="card">
+        <h2>Infos für alle</h2>
+        <p class="muted">Wird auf der Startseite angezeigt. Leere Felder werden ausgeblendet.</p>
+        <label for="i-budget">Budget <span class="hint">(z. B. „max. 20 €“)</span></label>
+        <input id="i-budget" maxlength="60" data-info>
+        <label for="i-handover">Übergabe <span class="hint">(Termin und Ort)</span></label>
+        <input id="i-handover" maxlength="120" placeholder="z. B. 20.12. bei Anna" data-info>
+        <label for="i-cd-label">Countdown bis … <span class="hint">(Anlass)</span></label>
+        <input id="i-cd-label" maxlength="60" placeholder="z. B. Bescherung" data-info>
+        <label for="i-cd-at">Countdown-Datum <span class="hint">(leer = kein Countdown)</span></label>
+        <input id="i-cd-at" type="datetime-local" data-info>
+        <button class="full" id="btn-info" type="button">Infos speichern</button>
+        <div id="info-msg"></div>
+      </div>
+
+      <div class="card">
+        <div class="row between">
+          <h2>Weihnachtsfeier</h2>
+          <span class="pill" id="poll-pill">keine Abstimmung</span>
+        </div>
+        <p class="muted">Schlage Termine vor. Alle Eingetragenen können auf der Startseite abstimmen. Wenn du einen Termin festlegst, endet die Abstimmung.</p>
+        <ul class="people" id="poll"></ul>
+        <label for="p-day">Neuer Terminvorschlag</label>
+        <div class="row nowrap">
+          <input id="p-day" type="date">
+          <input id="p-time" maxlength="30" placeholder="Uhrzeit, z. B. 18 Uhr">
+          <button class="outline" id="btn-poll-add" type="button">Hinzufügen</button>
+        </div>
+        <div id="poll-msg"></div>
       </div>
 
       <div class="card">
@@ -129,15 +161,28 @@
         nm.textContent = p.name;
         who.append(av, nm);
         li.append(who);
+        li.className = 'wrap-li';
+        const btns = document.createElement('div');
+        btns.className = 'row';
+        const pin = document.createElement('button');
+        pin.className = 'outline small';
+        pin.textContent = 'Neue PIN';
+        pin.onclick = () => {
+          const neu = prompt(`Neue PIN für ${p.name} (mind. 4 Zeichen). Gib sie der Person danach persönlich weiter.`);
+          if (neu === null) return;
+          act('wichtel_admin_reset_pin', { p_id: p.id, p_new: neu }, `PIN für ${p.name} wurde geändert.`, $('people-msg'));
+        };
+        btns.append(pin);
         if (!status.drawn) {
           const rm = document.createElement('button');
           rm.className = 'outline small';
           rm.textContent = 'Entfernen';
           rm.onclick = () => {
-            if (confirm(`${p.name} wirklich entfernen?`)) act('wichtel_admin_remove', { p_id: p.id });
+            if (confirm(`${p.name} wirklich entfernen?`)) act('wichtel_admin_remove', { p_id: p.id }, null, $('people-msg'));
           };
-          li.append(rm);
+          btns.append(rm);
         }
+        li.append(btns);
         list.append(li);
       });
       if (!n) {
@@ -146,6 +191,81 @@
         li.textContent = 'Noch niemand eingetragen.';
         list.append(li);
       }
+      renderInfo();
+      renderPoll();
+    }
+
+    /* ---------- Infos für alle ---------- */
+    let infoDirty = false;
+    document.querySelectorAll('[data-info]').forEach((el) =>
+      el.addEventListener('input', () => { infoDirty = true; }));
+
+    function toLocalInput(iso) {
+      if (!iso) return '';
+      const d = new Date(iso);
+      if (isNaN(d)) return '';
+      return new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0, 16);
+    }
+
+    function renderInfo() {
+      if (infoDirty) return;
+      $('i-budget').value = status.budget || '';
+      $('i-handover').value = status.handover || '';
+      $('i-cd-label').value = status.countdownLabel || '';
+      $('i-cd-at').value = toLocalInput(status.countdownAt);
+    }
+
+    /* ---------- Terminabstimmung ---------- */
+    function fmtDay(day, time) {
+      const d = new Date(day + 'T12:00:00');
+      const txt = d.toLocaleDateString('de-DE', { weekday: 'short', day: 'numeric', month: 'long' });
+      return time ? `${txt} · ${time}` : txt;
+    }
+
+    function renderPoll() {
+      const poll = status.poll || { options: [] };
+      const opts = poll.options || [];
+      const pill = $('poll-pill');
+      pill.textContent = !opts.length ? 'keine Abstimmung' : poll.finalId ? 'Termin steht' : 'läuft';
+      pill.classList.toggle('red', !!poll.finalId);
+      const list = $('poll');
+      list.innerHTML = '';
+      opts.forEach((o) => {
+        const isFinal = o.id === poll.finalId;
+        const li = document.createElement('li');
+        li.className = 'wrap-li';
+        const who = document.createElement('div');
+        who.className = 'who';
+        const av = document.createElement('span');
+        av.className = 'avatar' + (isFinal ? ' me' : '');
+        av.textContent = o.voters.length;
+        const txt = document.createElement('span');
+        txt.className = 'stack';
+        const day = document.createElement('strong');
+        day.textContent = fmtDay(o.day, o.time) + (isFinal ? ' – festgelegt' : '');
+        const names = document.createElement('small');
+        names.className = 'muted';
+        names.textContent = o.voters.length ? o.voters.join(', ') : 'Noch keine Stimme';
+        txt.append(day, names);
+        who.append(av, txt);
+        const btns = document.createElement('div');
+        btns.className = 'row';
+        const fix = document.createElement('button');
+        fix.className = 'outline small';
+        fix.textContent = isFinal ? 'Aufheben' : 'Festlegen';
+        fix.onclick = () => act('wichtel_admin_poll_final', { p_id: isFinal ? null : o.id },
+          isFinal ? 'Abstimmung läuft wieder.' : 'Termin festgelegt.', $('poll-msg'));
+        const rm = document.createElement('button');
+        rm.className = 'outline small';
+        rm.textContent = 'Löschen';
+        rm.onclick = () => {
+          if (confirm(`Termin „${fmtDay(o.day, o.time)}“ mit allen Stimmen löschen?`))
+            act('wichtel_admin_poll_remove', { p_id: o.id }, null, $('poll-msg'));
+        };
+        btns.append(fix, rm);
+        li.append(who, btns);
+        list.append(li);
+      });
     }
 
     async function refresh() {
@@ -154,8 +274,7 @@
     }
 
     async function act(fn, args, okText, msgEl = $('admin-msg')) {
-      showMsg($('admin-msg'), '');
-      showMsg($('settings-msg'), '');
+      ['admin-msg', 'settings-msg', 'info-msg', 'poll-msg', 'people-msg'].forEach((id) => showMsg($(id), ''));
       try {
         await rpc(fn, { p_pw: pw, ...(args || {}) });
         await refresh();
@@ -208,6 +327,25 @@
     $('btn-reset-all').addEventListener('click', () => {
       if (!confirm('Wirklich ALLES löschen? Alle Teilnehmenden und die Auslosung werden entfernt.')) return;
       act('wichtel_admin_reset_all', null, 'Alles zurückgesetzt.', $('settings-msg'));
+    });
+
+    $('btn-info').addEventListener('click', async () => {
+      const at = $('i-cd-at').value;
+      const ok = await act('wichtel_admin_set_info', {
+        p_budget: $('i-budget').value,
+        p_handover: $('i-handover').value,
+        p_countdown_at: at ? new Date(at).toISOString() : null,
+        p_countdown_label: $('i-cd-label').value,
+      }, 'Infos gespeichert.', $('info-msg'));
+      if (ok) { infoDirty = false; renderInfo(); }
+    });
+
+    $('btn-poll-add').addEventListener('click', async () => {
+      if (!$('p-day').value) { showMsg($('poll-msg'), 'Bitte ein Datum wählen.'); return; }
+      if (await act('wichtel_admin_poll_add', { p_day: $('p-day').value, p_time: $('p-time').value }, null, $('poll-msg'))) {
+        $('p-day').value = '';
+        $('p-time').value = '';
+      }
     });
 
     $('btn-title').addEventListener('click', () =>
