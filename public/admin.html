@@ -1,0 +1,217 @@
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Wichteln · Admin</title>
+  <meta name="robots" content="noindex">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+  <main class="wrap">
+    <header>
+      <div class="eyebrow">Admin-Bereich</div>
+      <h1 id="title">Wichteln</h1>
+      <p class="sub" id="subtitle">&nbsp;</p>
+    </header>
+
+    <section id="view-auth" class="card">
+      <h2>Admin-Anmeldung</h2>
+      <form id="form-auth">
+        <label for="a-pw">Admin-Passwort</label>
+        <input id="a-pw" type="password" autocomplete="current-password" required>
+        <button class="full" type="submit">Anmelden</button>
+        <div id="auth-msg"></div>
+      </form>
+    </section>
+
+    <section id="view-admin" class="hidden">
+      <div class="card">
+        <div class="row between">
+          <h2>Auslosung</h2>
+          <span class="pill" id="state-pill">offen</span>
+        </div>
+        <div id="draw-open">
+          <p class="muted">Wenn alle eingetragen sind, starte die Auslosung. Danach kann sich niemand mehr eintragen und jede Person sieht nach dem Anmelden ihren Wichtel. Du selbst siehst die Paare nicht.</p>
+          <button class="full red" id="btn-draw" type="button">Auslosung starten</button>
+        </div>
+        <div id="draw-done" class="hidden">
+          <p class="muted">Die Auslosung ist gelaufen. Alle können sich jetzt anmelden und ihren Wichtel sehen. Teile dafür einfach den Link zur Startseite.</p>
+          <button class="outline small" id="btn-reset-draw" type="button">Auslosung zurücksetzen</button>
+        </div>
+        <div id="admin-msg"></div>
+      </div>
+
+      <div class="card">
+        <div class="row between">
+          <h2>Teilnehmende</h2>
+          <span class="pill" id="count">0</span>
+        </div>
+        <ul class="people" id="people"></ul>
+      </div>
+
+      <div class="card">
+        <h2>Einstellungen</h2>
+        <label for="s-title">Titel der Seite</label>
+        <div class="row" style="flex-wrap:nowrap">
+          <input id="s-title" maxlength="60">
+          <button class="outline" id="btn-title" type="button">Speichern</button>
+        </div>
+        <label>Alles löschen</label>
+        <p class="muted" style="margin-top:0">Entfernt alle Teilnehmenden und die Auslosung, z. B. fürs nächste Jahr.</p>
+        <button class="outline small" id="btn-reset-all" type="button">Alles zurücksetzen</button>
+      </div>
+    </section>
+
+    <footer><a href="/">Zur Startseite</a></footer>
+  </main>
+
+  <script>
+    const $ = (id) => document.getElementById(id);
+    const PW_KEY = 'wichtel-admin';
+    let pw = '';
+    try { pw = sessionStorage.getItem(PW_KEY) || ''; } catch {}
+    let status = null;
+
+    async function api(path, opts = {}) {
+      const res = await fetch(path, {
+        ...opts,
+        headers: { 'Content-Type': 'application/json', 'X-Admin-Password': pw },
+        body: opts.body && JSON.stringify(opts.body),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw Object.assign(new Error(data.error || 'Fehler'), { status: res.status });
+      return data;
+    }
+
+    function showMsg(el, text, kind = 'error') {
+      el.innerHTML = '';
+      if (!text) return;
+      const div = document.createElement('div');
+      div.className = 'msg ' + kind;
+      div.textContent = text;
+      el.appendChild(div);
+    }
+
+    function initials(name) {
+      return name.split(' ').map((s) => s[0]).join('').slice(0, 2).toUpperCase();
+    }
+
+    function render() {
+      $('title').textContent = status.title;
+      if (document.activeElement !== $('s-title')) $('s-title').value = status.title;
+      const n = status.participants.length;
+      $('subtitle').textContent = n === 1 ? '1 Person eingetragen' : `${n} Personen eingetragen`;
+      $('count').textContent = n;
+      $('state-pill').textContent = status.drawn ? 'ausgelost' : 'offen';
+      $('state-pill').classList.toggle('red', status.drawn);
+      $('draw-open').classList.toggle('hidden', status.drawn);
+      $('draw-done').classList.toggle('hidden', !status.drawn);
+      $('btn-draw').disabled = n < 3;
+      $('btn-draw').textContent = n < 3 ? `Mindestens 3 Leute nötig (${n}/3)` : `Auslosung starten (${n} Personen)`;
+
+      const list = $('people');
+      list.innerHTML = '';
+      status.participants.forEach((p) => {
+        const li = document.createElement('li');
+        const who = document.createElement('div');
+        who.className = 'who';
+        const av = document.createElement('span');
+        av.className = 'avatar';
+        av.textContent = initials(p.name);
+        const nm = document.createElement('span');
+        nm.className = 'name';
+        nm.textContent = p.name;
+        who.append(av, nm);
+        li.append(who);
+        if (!status.drawn) {
+          const rm = document.createElement('button');
+          rm.className = 'outline small';
+          rm.textContent = 'Entfernen';
+          rm.onclick = async () => {
+            if (!confirm(`${p.name} wirklich entfernen?`)) return;
+            await act('/api/admin/remove', { id: p.id });
+          };
+          li.append(rm);
+        }
+        list.append(li);
+      });
+      if (!n) {
+        const li = document.createElement('li');
+        li.className = 'muted';
+        li.textContent = 'Noch niemand eingetragen.';
+        list.append(li);
+      }
+    }
+
+    async function refresh() {
+      status = await api('/api/status');
+      render();
+    }
+
+    async function act(path, body, okText) {
+      showMsg($('admin-msg'), '');
+      try {
+        await api(path, { method: 'POST', body: body || {} });
+        await refresh();
+        if (okText) showMsg($('admin-msg'), okText, 'ok');
+      } catch (e) {
+        if (e.status === 401) return logout();
+        showMsg($('admin-msg'), e.message);
+      }
+    }
+
+    function logout() {
+      pw = '';
+      try { sessionStorage.removeItem(PW_KEY); } catch {}
+      $('view-admin').classList.add('hidden');
+      $('view-auth').classList.remove('hidden');
+    }
+
+    async function login() {
+      try {
+        await api('/api/admin/check');
+        try { sessionStorage.setItem(PW_KEY, pw); } catch {}
+        $('view-auth').classList.add('hidden');
+        $('view-admin').classList.remove('hidden');
+        await refresh();
+      } catch (e) {
+        logout();
+        if (e.status === 401) showMsg($('auth-msg'), 'Falsches Passwort.');
+        else showMsg($('auth-msg'), 'Server nicht erreichbar.');
+      }
+    }
+
+    $('form-auth').addEventListener('submit', (ev) => {
+      ev.preventDefault();
+      showMsg($('auth-msg'), '');
+      pw = $('a-pw').value;
+      login();
+    });
+
+    $('btn-draw').addEventListener('click', () => {
+      if (!confirm('Jetzt auslosen? Danach kann sich niemand mehr eintragen.')) return;
+      act('/api/admin/draw', null, 'Ausgelost! 🎉 Alle können jetzt ihren Wichtel sehen.');
+    });
+
+    $('btn-reset-draw').addEventListener('click', () => {
+      if (!confirm('Auslosung zurücksetzen? Alle bisherigen Zuteilungen gehen verloren und es kann neu ausgelost werden.')) return;
+      act('/api/admin/reset-draw', null, 'Auslosung zurückgesetzt.');
+    });
+
+    $('btn-reset-all').addEventListener('click', () => {
+      if (!confirm('Wirklich ALLES löschen? Alle Teilnehmenden und die Auslosung werden entfernt.')) return;
+      act('/api/admin/reset-all', null, 'Alles zurückgesetzt.');
+    });
+
+    $('btn-title').addEventListener('click', () =>
+      act('/api/admin/title', { title: $('s-title').value }, 'Titel gespeichert.'));
+
+    if (pw) login();
+    setInterval(() => { if (pw && !document.hidden) refresh().catch(() => {}); }, 15000);
+  </script>
+</body>
+</html>

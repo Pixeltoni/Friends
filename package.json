@@ -1,0 +1,14 @@
+{
+  "name": "wichteln",
+  "version": "1.0.0",
+  "description": "Wichtel-Auslosung für Freunde: eintragen, Admin lost aus, jeder sieht seinen Wichtel.",
+  "main": "server.js",
+  "private": true,
+  "scripts": {
+    "start": "node server.js",
+    "test": "node --test"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}

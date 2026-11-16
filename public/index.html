@@ -1,0 +1,264 @@
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Wichteln</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+  <main class="wrap">
+    <header>
+      <div class="eyebrow">Geheime Auslosung</div>
+      <h1 id="title">Wichteln</h1>
+      <p class="sub" id="subtitle">&nbsp;</p>
+    </header>
+
+    <!-- Eintragen -->
+    <section id="view-join" class="card hidden">
+      <h2>Mach mit</h2>
+      <p class="muted">Trag dich ein. Mit deiner PIN siehst du später, wen du beschenkst – auch auf einem anderen Gerät.</p>
+      <form id="form-join">
+        <label for="j-name">Dein Name</label>
+        <input id="j-name" autocomplete="name" maxlength="40" required>
+        <label for="j-pin">PIN <span class="hint">(mind. 4 Zeichen, gut merken)</span></label>
+        <input id="j-pin" type="password" autocomplete="new-password" maxlength="64" required>
+        <label for="j-wish">Wunschzettel <span class="hint">(optional)</span></label>
+        <textarea id="j-wish" maxlength="500" placeholder="z. B. Bücher, Socken, gute Schokolade …"></textarea>
+        <button class="full" type="submit">Eintragen</button>
+        <div id="join-msg"></div>
+      </form>
+      <p class="center" style="margin:16px 0 0">
+        <button class="ghost" type="button" data-show="login">Schon eingetragen? Anmelden</button>
+      </p>
+    </section>
+
+    <!-- Anmelden -->
+    <section id="view-login" class="card hidden">
+      <h2>Anmelden</h2>
+      <p class="muted" id="login-hint">Melde dich mit deinem Namen und deiner PIN an.</p>
+      <form id="form-login">
+        <label for="l-name">Dein Name</label>
+        <input id="l-name" autocomplete="username" maxlength="40" required>
+        <label for="l-pin">PIN</label>
+        <input id="l-pin" type="password" autocomplete="current-password" maxlength="64" required>
+        <button class="full" type="submit">Anmelden</button>
+        <div id="login-msg"></div>
+      </form>
+      <p class="center" style="margin:16px 0 0" id="back-to-join">
+        <button class="ghost" type="button" data-show="join">Noch nicht dabei? Eintragen</button>
+      </p>
+    </section>
+
+    <!-- Warten auf Auslosung -->
+    <section id="view-waiting" class="hidden">
+      <div class="card">
+        <div class="row between">
+          <h2>Hallo <span id="w-name"></span>!</h2>
+          <span class="pill">Du bist dabei</span>
+        </div>
+        <p class="muted">Sobald alle eingetragen sind, startet die Admin-Person die Auslosung. Danach siehst du hier deinen Wichtel.</p>
+        <label for="w-wish">Dein Wunschzettel</label>
+        <textarea id="w-wish" maxlength="500"></textarea>
+        <div class="row" style="margin-top:10px">
+          <button class="outline small" id="save-wish" type="button">Wunschzettel speichern</button>
+          <span id="wish-msg" class="muted"></span>
+        </div>
+      </div>
+    </section>
+
+    <!-- Ergebnis -->
+    <section id="view-result" class="hidden">
+      <button class="gift" id="gift" type="button"><span>Tippen zum Öffnen</span></button>
+      <div class="card reveal hidden" id="reveal">
+        <div class="label">Du beschenkst</div>
+        <div class="target" id="r-target"></div>
+        <div class="wishbox" id="r-wishbox"><strong>Wunschzettel</strong><span id="r-wish"></span></div>
+        <p class="muted" style="margin-bottom:0">Psst – nicht verraten!</p>
+      </div>
+    </section>
+
+    <!-- Teilnehmende -->
+    <section id="view-people" class="card hidden">
+      <div class="row between">
+        <h2>Dabei</h2>
+        <span class="pill" id="count">0</span>
+      </div>
+      <ul class="people" id="people"></ul>
+    </section>
+
+    <footer>
+      <button class="ghost hidden" id="logout" type="button">Abmelden</button>
+    </footer>
+  </main>
+
+  <script>
+    const $ = (id) => document.getElementById(id);
+    const TOKEN_KEY = 'wichtel-token';
+    let token = null;
+    try { token = localStorage.getItem(TOKEN_KEY); } catch {}
+    let me = null;
+    let status = null;
+    let forcedView = null;
+
+    function setToken(t) {
+      token = t;
+      try { t ? localStorage.setItem(TOKEN_KEY, t) : localStorage.removeItem(TOKEN_KEY); } catch {}
+    }
+
+    async function api(path, opts = {}) {
+      const headers = { 'Content-Type': 'application/json' };
+      if (token) headers.Authorization = 'Bearer ' + token;
+      const res = await fetch(path, { ...opts, headers, body: opts.body && JSON.stringify(opts.body) });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw Object.assign(new Error(data.error || 'Fehler'), { status: res.status });
+      return data;
+    }
+
+    function showMsg(el, text, kind = 'error') {
+      el.innerHTML = '';
+      if (!text) return;
+      const div = document.createElement('div');
+      div.className = 'msg ' + kind;
+      div.textContent = text;
+      el.appendChild(div);
+    }
+
+    function initials(name) {
+      return name.split(' ').map((s) => s[0]).join('').slice(0, 2).toUpperCase();
+    }
+
+    function show(ids) {
+      ['view-join', 'view-login', 'view-waiting', 'view-result', 'view-people'].forEach((id) =>
+        $(id).classList.toggle('hidden', !ids.includes(id)));
+    }
+
+    function renderPeople() {
+      const list = $('people');
+      list.innerHTML = '';
+      status.participants.forEach((p) => {
+        const li = document.createElement('li');
+        const who = document.createElement('div');
+        who.className = 'who';
+        const av = document.createElement('span');
+        const isMe = me && p.name === me.name;
+        av.className = 'avatar' + (isMe ? ' me' : '');
+        av.textContent = initials(p.name);
+        const nm = document.createElement('span');
+        nm.className = 'name';
+        nm.textContent = p.name + (isMe ? ' (du)' : '');
+        who.append(av, nm);
+        li.append(who);
+        list.append(li);
+      });
+      if (!status.participants.length) {
+        const li = document.createElement('li');
+        li.className = 'muted';
+        li.textContent = 'Noch niemand – sei die erste Person!';
+        list.append(li);
+      }
+      $('count').textContent = status.participants.length;
+    }
+
+    function render() {
+      $('title').textContent = status.title;
+      document.title = status.title;
+      const n = status.participants.length;
+      $('subtitle').textContent = status.drawn
+        ? 'Die Auslosung ist gelaufen 🎁'
+        : n === 1 ? '1 Person ist dabei' : `${n} Personen sind dabei`;
+      $('logout').classList.toggle('hidden', !me);
+
+      if (me && status.drawn && me.wichtel) {
+        $('r-target').textContent = me.wichtel.name;
+        $('r-wish').textContent = me.wichtel.wish || '(kein Wunschzettel angegeben)';
+        show(['view-result']);
+      } else if (me) {
+        $('w-name').textContent = me.name;
+        if (document.activeElement !== $('w-wish')) $('w-wish').value = me.wish || '';
+        show(['view-waiting', 'view-people']);
+      } else if (status.drawn) {
+        $('login-hint').textContent = 'Es wurde ausgelost! Melde dich an, um deinen Wichtel zu sehen.';
+        $('back-to-join').classList.add('hidden');
+        show(['view-login']);
+      } else {
+        show([forcedView === 'login' ? 'view-login' : 'view-join', 'view-people']);
+      }
+      renderPeople();
+    }
+
+    async function refresh() {
+      try {
+        status = await api('/api/status');
+        if (token) {
+          try {
+            me = await api('/api/me');
+          } catch (e) {
+            if (e.status === 401) { setToken(null); me = null; }
+          }
+        }
+        render();
+      } catch (e) {
+        $('subtitle').textContent = 'Server nicht erreichbar.';
+      }
+    }
+
+    $('form-join').addEventListener('submit', async (ev) => {
+      ev.preventDefault();
+      showMsg($('join-msg'), '');
+      try {
+        const { token: t } = await api('/api/join', {
+          method: 'POST',
+          body: { name: $('j-name').value, pin: $('j-pin').value, wish: $('j-wish').value },
+        });
+        setToken(t);
+        await refresh();
+      } catch (e) { showMsg($('join-msg'), e.message); }
+    });
+
+    $('form-login').addEventListener('submit', async (ev) => {
+      ev.preventDefault();
+      showMsg($('login-msg'), '');
+      try {
+        const { token: t } = await api('/api/login', {
+          method: 'POST',
+          body: { name: $('l-name').value, pin: $('l-pin').value },
+        });
+        setToken(t);
+        await refresh();
+      } catch (e) { showMsg($('login-msg'), e.message); }
+    });
+
+    $('save-wish').addEventListener('click', async () => {
+      try {
+        await api('/api/me/wish', { method: 'POST', body: { wish: $('w-wish').value } });
+        me.wish = $('w-wish').value;
+        $('wish-msg').textContent = 'Gespeichert ✓';
+        setTimeout(() => ($('wish-msg').textContent = ''), 2000);
+      } catch (e) { $('wish-msg').textContent = e.message; }
+    });
+
+    $('gift').addEventListener('click', () => {
+      $('gift').classList.add('hidden');
+      $('reveal').classList.remove('hidden');
+    });
+
+    document.querySelectorAll('[data-show]').forEach((b) =>
+      b.addEventListener('click', () => { forcedView = b.dataset.show; render(); }));
+
+    $('logout').addEventListener('click', () => {
+      setToken(null);
+      me = null;
+      $('gift').classList.remove('hidden');
+      $('reveal').classList.add('hidden');
+      render();
+    });
+
+    refresh();
+    setInterval(() => { if (!document.hidden) refresh(); }, 15000);
+  </script>
+</body>
+</html>
